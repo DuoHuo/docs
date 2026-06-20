@@ -1,173 +1,50 @@
 ---
 icon: lucide/rocket
+description: 南信大 DH 互联网技术社团的技术积累与知识库。
 ---
 
-# Get started
+# 多火知识库
 
-For full documentation visit [zensical.org](https://zensical.org/docs/).
+南信大 DH 互联网技术社团的技术积累与知识库。
+这里收集社员的技术文章与实践经验，分门别类，供历届社友学习参考。
 
-## Commands
+## 板块导航
 
-* [`zensical new`][new] - Create a new project
-* [`zensical serve`][serve] - Start local web server
-* [`zensical build`][build] - Build your site
+### 网络
 
-  [new]: https://zensical.org/docs/usage/new/
-  [serve]: https://zensical.org/docs/usage/preview/
-  [build]: https://zensical.org/docs/usage/build/
+网络配置、路由器玩法、校园网相关实践。
 
-## Examples
+- [OpenWrt 路由器让校园网速度超级加倍](networking/openwrt-campus-multilink.md) — 通过 macvlan + mwan3 多线多拨绕过墙口限制，自动登录校园网认证
+- [中间人能知道我上什么网站吗？](networking/mitm-website-visibility.md) — 从应用层到链路层逐层分析 HTTPS 流量里会泄露哪些痕迹
+- [在 VPS 上部署 Hysteria2](networking/hysteria2-vps-deploy.md) — Hy2 服务端部署 + Sparkle / Clash 客户端配置
+- [VLESS 代理搭建教程](networking/vless-proxy-setup.md) — sing-box + VLESS-REALITY，配 fail2ban/ufw/BBR 的新手教程
 
-### Admonitions
+[查看全部 →](networking/index.md)
 
-> Go to [documentation](https://zensical.org/docs/authoring/admonitions/)
+### 开发
 
-!!! note
+前端、后端、Web 与各类编程实践。
 
-    This is a **note** admonition. Use it to provide helpful information.
+- [二维码远程签到机](development/qrcode-remote-checkin.md) — 用 WebSocket 低延迟同步二维码，原生 JS + Golang
+- [解决 JSON 解析报错 Error: Unexpected character "{" at position 1](development/json-utf8-bom-error.md) — 元凶是 UTF-8 with BOM
+- [菜鸟的 JavaScript 模块开发教程（原生）](development/vanilla-js-module-tutorial.md) — Utils / Constructor / Export 三段式模块划分
+- [2API：把任意接口封装成 OpenAI 标准接口](development/openai-compatible-api.md) — 实现 /v1/models 与 /v1/chat/completions，包装成 OpenAI 标准格式
+- [Jupyter 上的 CUDA 魔法函数](development/cuda-jupyter-magics.md) — 用 cell 魔法函数在 Jupyter 里做 CUDA 开发与 nsys 性能分析
 
-!!! warning
+[查看全部 →](development/index.md)
 
-    This is a **warning** admonition. Be careful!
+### 系统
 
-### Details
+操作系统、Linux 玩法、打包与系统配置实践。
 
-> Go to [documentation](https://zensical.org/docs/authoring/admonitions/#collapsible-blocks)
+- [在 AUR (Archlinux User Repository) 提交你的软件包](system/aur-package-submission.md) — 从注册账号、配置 SSH、写 PKGBUILD 到 push 上传
 
-??? info "Click to expand for more info"
+[查看全部 →](system/index.md)
 
-    This content is hidden until you click to expand it.
-    Great for FAQs or long explanations.
+### AI
 
-## Code Blocks
+大模型、智能体（Agent）、提示词与 AI 工程实践。
 
-> Go to [documentation](https://zensical.org/docs/authoring/code-blocks/)
+- [上下文管理四种技巧](ai/context-engineering-strategies.md) — 上下文工程四大策略：写入、选择、压缩、隔离
 
-``` python hl_lines="2" title="Code blocks"
-def greet(name):
-    print(f"Hello, {name}!") # (1)!
-
-greet("Python")
-```
-
-1.  > Go to [documentation](https://zensical.org/docs/authoring/code-blocks/#code-annotations)
-
-    Code annotations allow to attach notes to lines of code.
-
-Code can also be highlighted inline: `#!python print("Hello, Python!")`.
-
-## Content tabs
-
-> Go to [documentation](https://zensical.org/docs/authoring/content-tabs/)
-
-=== "Python"
-
-    ``` python
-    print("Hello from Python!")
-    ```
-
-=== "Rust"
-
-    ``` rs
-    println!("Hello from Rust!");
-    ```
-
-## Diagrams
-
-> Go to [documentation](https://zensical.org/docs/authoring/diagrams/)
-
-``` mermaid
-graph LR
-  A[Start] --> B{Error?};
-  B -->|Yes| C[Hmm...];
-  C --> D[Debug];
-  D --> B;
-  B ---->|No| E[Yay!];
-```
-
-## Footnotes
-
-> Go to [documentation](https://zensical.org/docs/authoring/footnotes/)
-
-Here's a sentence with a footnote.[^1]
-
-Hover it, to see a tooltip.
-
-[^1]: This is the footnote.
-
-
-## Formatting
-
-> Go to [documentation](https://zensical.org/docs/authoring/formatting/)
-
-- ==This was marked (highlight)==
-- ^^This was inserted (underline)^^
-- ~~This was deleted (strikethrough)~~
-- H~2~O
-- A^T^A
-- ++ctrl+alt+del++
-
-## Icons, Emojis
-
-> Go to [documentation](https://zensical.org/docs/authoring/icons-emojis/)
-
-* :sparkles: `:sparkles:`
-* :rocket: `:rocket:`
-* :tada: `:tada:`
-* :memo: `:memo:`
-* :eyes: `:eyes:`
-
-## Maths
-
-> Go to [documentation](https://zensical.org/docs/authoring/math/)
-
-$$
-\cos x=\sum_{k=0}^{\infty}\frac{(-1)^k}{(2k)!}x^{2k}
-$$
-
-!!! warning "Needs configuration"
-    Note that MathJax is included via a `script` tag on this page and is not
-    configured in the generated default configuration to avoid including it
-    in a pages that do not need it. See the documentation for details on how
-    to configure it on all your pages if they are more Maths-heavy than these
-    simple starter pages.
-
-<script id="MathJax-script" src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
-<script>
-  window.MathJax = {
-    tex: {
-      inlineMath: [["\\(", "\\)"]],
-      displayMath: [["\\[", "\\]"]],
-      processEscapes: true,
-      processEnvironments: true
-    },
-    options: {
-      ignoreHtmlClass: ".*|",
-      processHtmlClass: "arithmatex"
-    }
-  };
-
-  document$.subscribe(() => {
-    MathJax.startup.output.clearCache()
-    MathJax.typesetClear()
-    MathJax.texReset()
-    MathJax.typesetPromise()
-  })
-</script>
-
-## Task Lists
-
-> Go to [documentation](https://zensical.org/docs/authoring/lists/#using-task-lists)
-
-* [x] Install Zensical
-* [x] Configure `zensical.toml`
-* [x] Write amazing documentation
-* [ ] Deploy anywhere
-
-## Tooltips
-
-> Go to [documentation](https://zensical.org/docs/authoring/tooltips/)
-
-[Hover me][example]
-
-  [example]: https://example.com "I'm a tooltip!"
+[查看全部 →](ai/index.md)

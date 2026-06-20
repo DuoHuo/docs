@@ -3,7 +3,7 @@
 -#}
 {% include "partials/actions.html" %}
 {% set page_meta %}
-  {% if page.meta and (page.meta.author or page.meta.source) %}
+  {% if page.meta and (page.meta.author or page.meta.date or page.meta.source) %}
     <aside class="md-source-file md-page-meta" aria-label="页面信息">
       {% if page.meta.author %}
         <span class="md-source-file__fact">
@@ -11,6 +11,14 @@
             {% include ".icons/material/account-edit.svg" %}
           </span>
           <span>作者：{{ page.meta.author }}</span>
+        </span>
+      {% endif %}
+      {% if page.meta.date %}
+        <span class="md-source-file__fact">
+          <span class="md-icon" title="最后编辑">
+            {% include ".icons/material/calendar-edit.svg" %}
+          </span>
+          <span>最后编辑：{{ page.meta.date }}</span>
         </span>
       {% endif %}
       {% if page.meta.source %}

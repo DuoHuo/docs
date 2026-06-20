@@ -53,6 +53,25 @@ nav = [
   { "网络" = [
     "networking/index.md",
     { "OpenWrt 路由器让校园网速度超级加倍" = "networking/openwrt-campus-multilink.md" },
+    { "中间人能知道我上什么网站吗？" = "networking/mitm-website-visibility.md" },
+    { "在 VPS 上部署 Hysteria2" = "networking/hysteria2-vps-deploy.md" },
+    { "VLESS 代理搭建教程" = "networking/vless-proxy-setup.md" },
+  ]},
+  { "开发" = [
+    "development/index.md",
+    { "二维码远程签到机" = "development/qrcode-remote-checkin.md" },
+    { "解决 JSON 解析报错" = "development/json-utf8-bom-error.md" },
+    { "菜鸟的 JS 模块开发教程" = "development/vanilla-js-module-tutorial.md" },
+    { "2API：封装 OpenAI 标准接口" = "development/openai-compatible-api.md" },
+    { "Jupyter 上的 CUDA 魔法函数" = "development/cuda-jupyter-magics.md" },
+  ]},
+  { "系统" = [
+    "system/index.md",
+    { "在 AUR 提交你的软件包" = "system/aur-package-submission.md" },
+  ]},
+  { "AI" = [
+    "ai/index.md",
+    { "上下文管理四种技巧" = "ai/context-engineering-strategies.md" },
   ]},
 ]
 

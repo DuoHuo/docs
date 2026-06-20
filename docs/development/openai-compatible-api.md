@@ -1,0 +1,244 @@
+---
+title: 2API：把任意接口封装成 OpenAI 标准接口
+author: 真真夜夜
+date: 2025-10-17
+comments: true
+tags:
+  - 开发
+  - 后端
+  - API
+  - OpenAI
+---
+
+## 📚 名词解释
+
+**"2API"** 通常是把各种非标准接口转成 **OpenAI 标准接口**。
+
+---
+
+## 🔑 关键接口
+
+一般来说只要实现两个关键接口：
+
+- **GET** `/v1/models`
+- **POST** `/v1/chat/completions`
+
+> `/v1/models` 非必需，实现它是为了自动获取模型列表。
+
+### GET /v1/models
+
+**作用：** 列出当前账号可用的全部模型（包括微调、已删除但仍在 TTL 内的模型）。
+
+**请求 HTTP 方法：** `GET`
+
+**Headers（必需）：**
+
+- `Authorization: Bearer <YOUR_API_KEY>`
+- `Content-Type: application/json`（可省）
+
+**示例：**
+
+```bash
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+```
+
+**返回体（200 OK）：**
+
+```json
+{
+    "object": "list",
+    "data": [
+        {
+            "id": "gpt-4-turbo-2024-04-09",
+            "object": "model",
+            "created": 1712601600,
+            "owned_by": "openai",
+            "permission": [{ }],
+            "root": "gpt-4-turbo",
+            "parent": null
+        }
+    ]
+}
+```
+
+### POST /v1/chat/completions
+
+**作用：** 基于对话上下文生成回复。
+
+**请求：**
+
+```http
+POST https://api.openai.com/v1/chat/completions
+Content-Type: application/json
+Authorization: Bearer <YOUR_API_KEY>
+```
+
+**请求体：**
+
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "你好，介绍一下你自己"
+    }
+  ],
+  "model": "DeepSeek-V3-0324",
+  "seed": 54321
+}
+```
+
+**返回体（200 OK）—非流式示例：**
+
+```json
+{
+    "id": "chatcmpl-123456789",
+    "object": "chat.completion",
+    "created": 1712601600,
+    "model": "gpt-4-turbo-2024-04-09",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "The current weather in Paris is sunny, 22 °C.",
+                "refusal": null
+            },
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 30,
+        "completion_tokens": 20,
+        "total_tokens": 50
+    }
+}
+```
+
+**流式（`stream=true`）返回** `Content-Type: text/event-stream`，每行：
+
+```
+data: {"choices":[{...}],"created":...,"id":"...","model":"...","object":"chat.completion.chunk"}
+```
+
+最后以 `data: [DONE]` 结束。
+
+---
+
+## 🚀 实现接口
+
+随便选你熟悉的编程语言实现接口即可，可以选择 **Python / JS / Go / Java / PHP** 任意编程语言的 RESTful 框架实现。比如：Python + FastAPI。
+
+如果你不知道选啥，全程 vibe code 的话，最推荐 **JS 方案**，毕竟它可以很方便地部署到 `deno`、`cf worker`。
+
+---
+
+## 💾 实例：EdgeOne Demo
+
+现在我们拿一个简单的例子来实现一下。就用 EdgeOne 的 Demo 吧，因为它足够简单，不需要验签、不需要 Cookies 认证。
+
+### 抠下需要的信息
+
+用浏览器调试器（F12）发送一条消息，查看请求是什么样子。
+
+**请求体（Payload）：**
+
+```json
+{"model":"deepseek-chat","messages":[{"role":"user","content":"你好"}]}
+```
+
+看起来很简单对吧？其实它已经是标准的 OpenAI 格式，但是平台没有提供 API，这也是我们需要 2API 的原因之一。
+
+### 核心代码
+
+```ts
+// 支持的模型列表
+const SUPPORTED_MODELS = [
+  'deepseek-chat',
+  'deepseek-reasoner',
+];
+
+// 处理 /v1/models 接口
+export async function handleModels(c: Context) {
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  const modelsResponse = {
+    object: 'list',
+    data: SUPPORTED_MODELS.map(modelId => ({
+      id: modelId,
+      object: 'model',
+      created: currentTimestamp,
+      owned_by: 'deepseek',
+    })),
+  };
+  return c.json(modelsResponse);
+}
+
+// 处理 /v1/chat/completions 接口
+export async function handleChatCompletions(c: Context) {
+  try {
+    const body = await c.req.json();
+
+    // 验证必要字段
+    if (!body.model) {
+      return c.json({
+        error: {
+          message: 'Missing required field: model',
+          type: 'invalid_request_error',
+          code: 'missing_required_field',
+        },
+      }, 400);
+    }
+
+    if (!body.messages || !Array.isArray(body.messages) || body.messages.length === 0) {
+      return c.json({
+        error: {
+          message: 'Missing required field: messages',
+          type: 'invalid_request_error',
+          code: 'missing_required_field',
+        },
+      }, 400);
+    }
+
+    // 接下来是上游 API 的调用、流式处理等
+    const upstreamUrl = c.env.UPSTREAM_API_URL;
+    const response = await fetch(upstreamUrl, {
+      method: 'POST',
+      headers: generateRandomHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    // 处理流式/非流式响应
+    if (body.stream === true) {
+      return streamResponse(c, response);
+    } else {
+      return c.json(await response.json());
+    }
+  } catch (error) {
+    return c.json({ error: { message: 'Internal error' } }, 500);
+  }
+}
+```
+
+---
+
+## 🙋 收获：直接使用 AI
+
+其实还有更快的方式，你只要：
+
+1. 抠下相关请求（curl 的控制台信息）
+2. 直接丢给 AI。
+3. AI 会自动帮你实现好标准的 OpenAI 接口。
+
+**示例提示词：**
+
+> 基于以下请求封装标准的 OpenAI 接口，采用 JS 方案，方便我部署 deno.dev。需要实现 `/v1/models`、`/v1/chat/completions`。
+
+---
+
+## 🌟 进阶
+
+- 添加 API_KEY 用于 2API 的验证，添加随机 UA
+- 部署写好的服务到 Deno 或 CF Worker
+- 学会处理历史记录和上下文
+- 学习下 LinuxDo 其他大佬的 2API 实现，你现在应该能看懂他们的代码了

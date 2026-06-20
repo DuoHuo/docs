@@ -1,0 +1,388 @@
+---
+title: Jupyter 上的 CUDA 魔法函数
+author: 真真夜夜
+date: 2026-01-06
+comments: true
+tags:
+  - 开发
+  - CUDA
+  - Jupyter
+  - GPU
+---
+
+在 Jupyter / Colab 里借助 cell 魔法函数（`%%writefile` 写文件、`%%shell` / `!cmd` 执行命令），可以一站式完成 CUDA 的编写、编译、运行和性能分析。下面以向量加法为例，从 CPU 对照、CUDA 实现、nsys 性能分析到 grid-strided loop 优化逐步展开。
+
+## CPU 加法案例
+
+```cpp
+%%writefile add_cpu.cpp
+#include <iostream>
+#include <vector>
+#include <cmath>
+
+// Step 2: Define add function
+void add_cpu(std::vector<float> &c, const std::vector<float> &a, const std::vector<float> &b) {
+  // CPU use loop to calculate
+  for (size_t i = 0; i < a.size(); i++) {
+     c[i] = a[i] + b[i];
+  }
+}
+
+int main() {
+  // Step 1: Prepare & initialize data
+  constexpr size_t N = 1 << 20; // ~1M elements
+
+  // Initialize data
+  const std::vector<float> a(N, 1);
+  const std::vector<float> b(N, 2);
+  std::vector<float> c(N, 0);
+
+  // Step 3: Call the cpu addition function
+  add_cpu(c, a, b);
+
+  // Step 4: Check for errors (all values should be 3.0f)
+  float maxError = 0.0f;
+  for (int i = 0; i < N; i++) {
+     maxError = fmax(maxError, fabs(c[i] - 3.0f));
+  }
+  std::cout << "Max error: " << maxError << std::endl;
+}
+```
+
+```bash
+%%shell # 执行终端命令
+
+g++ add_cpu.cpp -o add_cpu
+./add_cpu
+```
+
+## CUDA 加法案例
+
+```cpp
+%%writefile add_cuda.cu
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <cuda_runtime.h>
+
+#define CUDA_CHECK(call) \
+{ \
+  cudaError_t err = call; \
+  if (err != cudaSuccess) { \
+     std::cerr << "CUDA Error at " << __FILE__ << ":" << __LINE__ \
+              << " - " << cudaGetErrorString(err) << std::endl; \
+  } \
+}
+
+// Step 3: Define add kernel
+/**
+ * @brief CUDA kernel for element-wise addition: c = a + b
+ * @tparam T The data type of the arrays, which can be any type that supports
+ *           addition operations (e.g. int, float)
+ *
+ * @param c Pointer to the result array, where the results of the addition are stored.
+ * @param a Pointer to the first input array.
+ * @param b Pointer to the second input array.
+ * @param n The number of elements in the arrays. The arrays are assumed to be of equal length.
+ */
+template<typename T>
+__global__ void add_kernel(T *c, const T *a, const T *b, int n) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < n) {
+     c[idx] = a[idx] + b[idx];
+  }
+}
+
+int main() {
+  // Step 1: Prepare & initialize data
+  constexpr size_t N = 1 << 20; // ~1M elements
+  constexpr size_t size_bytes = sizeof(float) * N;
+
+  // Initialize data
+  const std::vector<float> h_a(N, 1);
+  const std::vector<float> h_b(N, 2);
+  std::vector<float> h_c(N, 0);
+
+  // Step 2: Allocate device memory & transfer to global memory
+  float *d_a, *d_b, *d_c;
+  CUDA_CHECK(cudaMalloc(&d_a, size_bytes));
+  CUDA_CHECK(cudaMalloc(&d_b, size_bytes));
+  CUDA_CHECK(cudaMalloc(&d_c, size_bytes));
+
+  CUDA_CHECK(cudaMemcpy(d_a, h_a.data(), size_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_b, h_b.data(), size_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_c, h_c.data(), size_bytes, cudaMemcpyHostToDevice));
+
+  // Step 4: Call the cuda addition function
+  // Set up kernel configuration
+  dim3 block_dim(256);
+  dim3 grid_dim((N + block_dim.x - 1) / block_dim.x);
+
+  // Call cuda add kernel
+  add_kernel<<<grid_dim, block_dim>>>(d_c, d_a, d_b, N);
+
+  // Step 5: Transfer data from global mem to host mem
+  CUDA_CHECK(cudaMemcpy(h_c.data(), d_c, size_bytes, cudaMemcpyDeviceToHost));
+
+  // Step 6: Check for errors (all values should be 3.0f)
+  float maxError = 0.0f;
+  for (int i = 0; i < N; i++) {
+     maxError = fmax(maxError, fabs(h_c[i] - 3.0f));
+  }
+  std::cout << "Max error: " << maxError << std::endl;
+
+  // Cleanup
+  if (d_a) {
+     CUDA_CHECK(cudaFree(d_a));
+  }
+  if (d_b) {
+     CUDA_CHECK(cudaFree(d_b));
+  }
+  if (d_c) {
+     CUDA_CHECK(cudaFree(d_c));
+  }
+}
+```
+
+```bash
+%%shell
+
+nvcc add_cuda.cu -o add_cuda
+./add_cuda
+```
+
+## 使用 nsys 进行性能分析
+
+```cpp
+%%writefile add_cuda_profiling.cu
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <cuda_runtime.h>
+
+#define CUDA_CHECK(call) \
+{ \
+  cudaError_t err = call; \
+  if (err != cudaSuccess) { \
+     std::cerr << "CUDA Error at " << __FILE__ << ":" << __LINE__ \
+              << " - " << cudaGetErrorString(err) << std::endl; \
+  } \
+}
+
+// Step 3: Define add kernel
+/**
+ * @brief CUDA kernel for element-wise addition: c = a + b
+ * @tparam T The data type of the arrays, which can be any type that supports
+ *           addition operations (e.g. int, float)
+ *
+ * @param c Pointer to the result array, where the results of the addition are stored.
+ * @param a Pointer to the first input array.
+ * @param b Pointer to the second input array.
+ * @param n The number of elements in the arrays. The arrays are assumed to be of equal length.
+ */
+template<typename T>
+__global__ void add_kernel(T *c, const T *a, const T *b, const size_t n, const size_t step) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + step;
+  if (idx < n) {
+     c[idx] = a[idx] + b[idx];
+  }
+}
+
+template<typename T>
+void vector_add(T *c, const T *a, const T *b, size_t n, const dim3& grid_dim, const dim3& block_dim) {
+  size_t step = grid_dim.x * block_dim.x;
+  for (size_t i = 0; i < n; i += step) {
+     add_kernel<<<grid_dim, block_dim>>>(c, a, b, n, i);
+  }
+}
+
+int main() {
+  // Step 1: Prepare & initialize data
+  constexpr size_t N = 1 << 20; // ~1M elements
+  constexpr size_t size_bytes = sizeof(float) * N;
+
+  // Initialize data
+  const std::vector<float> h_a(N, 1);
+  const std::vector<float> h_b(N, 2);
+  std::vector<float> h_c(N, 0);
+
+  // Step 2: Allocate device memory & transfer to global memory
+  float *d_a, *d_b, *d_c;
+  CUDA_CHECK(cudaMalloc(&d_a, size_bytes));
+  CUDA_CHECK(cudaMalloc(&d_b, size_bytes));
+  CUDA_CHECK(cudaMalloc(&d_c, size_bytes));
+
+  CUDA_CHECK(cudaMemcpy(d_a, h_a.data(), size_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_b, h_b.data(), size_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_c, h_c.data(), size_bytes, cudaMemcpyHostToDevice));
+
+  // Step 4: Call the cuda addition function
+  // Set up kernel configuration
+  dim3 block_dim(1);
+  dim3 grid_dim(1);
+
+  // Call cuda add kernel
+  vector_add(d_c, d_a, d_b, N, block_dim, grid_dim);
+
+  // Step 5: Transfer data from global mem to host mem
+  CUDA_CHECK(cudaMemcpy(h_c.data(), d_c, size_bytes, cudaMemcpyDeviceToHost));
+
+  // Step 6: Check for errors (all values should be 3.0f)
+  float sumError = 0.0f;
+  for (int i = 0; i < N; i++) {
+     sumError += fabs(h_c[i] - 3.0f);
+  }
+  std::cout << "Sum error: " << sumError << std::endl;
+
+  // Cleanup
+  if (d_a) {
+     CUDA_CHECK(cudaFree(d_a));
+  }
+  if (d_b) {
+     CUDA_CHECK(cudaFree(d_b));
+  }
+  if (d_c) {
+     CUDA_CHECK(cudaFree(d_c));
+  }
+}
+```
+
+```bash
+%%shell
+
+nvcc add_cuda_profiling.cu -o add_cuda_profiling && ./add_cuda_profiling
+```
+
+```bash
+%shell # Download and install CUDA 12.1
+! set -x \
+&& cd $(mktemp -d) \
+&& wget https://developer.download.nvidia.com/compute/cuda/12.1.0/local_installers/cuda_12.1.0_530.30.02_linux.run \
+&& sudo sh cuda_12.1.0_530.30.02_linux.run --silent --toolkit \
+&& rm cuda_12.1.0_530.30.02_linux.run
+```
+
+```python
+import os
+
+# Add CUDA installation to PATH
+os.environ['PATH'] = os.environ['PATH'] + ':/usr/local/cuda/bin/'
+```
+
+```bash
+%shell # Run Nsight command-line utility
+
+! nsys --version
+```
+
+```bash
+%shell # 启动 profiling
+! nsys profile -t cuda,nvtx,osrt -o add_cuda_profiling -f true ./add_cuda_profiling
+```
+
+```bash
+%shell # 解析并统计性能信息：
+! nsys stats add_cuda_profiling.nsys-rep
+```
+
+## 将循环放入核函数（Grid-strided loop）优化
+
+```cpp
+%%writefile add_cuda_profiling2.cu
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <cuda_runtime.h>
+
+#define CUDA_CHECK(call) \
+{ \
+  cudaError_t err = call; \
+  if (err != cudaSuccess) { \
+     std::cerr << "CUDA Error at " << __FILE__ << ":" << __LINE__ \
+              << " - " << cudaGetErrorString(err) << std::endl; \
+  } \
+}
+
+// Step 3: Define add kernel
+template<typename T>
+__global__ void add_kernel_inner_loop(T *c, const T *a, const T *b, const size_t n, const size_t step) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  for (size_t i = idx; i < n; i += step) {
+     if (i < n) {
+        c[i] = a[i] + b[i];
+     }
+  }
+}
+
+template<typename T>
+void vector_add(T *c, const T *a, const T *b, size_t n, const dim3& grid_dim, const dim3& block_dim) {
+  size_t step = grid_dim.x * block_dim.x;
+  add_kernel_inner_loop<<<grid_dim, block_dim>>>(c, a, b, n, step);
+}
+
+int main() {
+  // Step 1: Prepare & initialize data
+  constexpr size_t N = 1 << 20; // ~1M elements
+  constexpr size_t size_bytes = sizeof(float) * N;
+
+  // Initialize data
+  const std::vector<float> h_a(N, 1);
+  const std::vector<float> h_b(N, 2);
+  std::vector<float> h_c(N, 0);
+
+  // Step 2: Allocate device memory & transfer to global memory
+  float *d_a, *d_b, *d_c;
+  CUDA_CHECK(cudaMalloc(&d_a, size_bytes));
+  CUDA_CHECK(cudaMalloc(&d_b, size_bytes));
+  CUDA_CHECK(cudaMalloc(&d_c, size_bytes));
+
+  CUDA_CHECK(cudaMemcpy(d_a, h_a.data(), size_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_b, h_b.data(), size_bytes, cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(d_c, h_c.data(), size_bytes, cudaMemcpyHostToDevice));
+
+  // Step 4: Call the cuda addition function
+  // Set up kernel configuration
+  dim3 block_dim(1);
+  dim3 grid_dim(1);
+
+  // Call cuda add kernel
+  vector_add(d_c, d_a, d_b, N, block_dim, grid_dim);
+
+  // Step 5: Transfer data from global mem to host mem
+  CUDA_CHECK(cudaMemcpy(h_c.data(), d_c, size_bytes, cudaMemcpyDeviceToHost));
+
+  // Step 6: Check for errors (all values should be 3.0f)
+  float sumError = 0.0f;
+  for (int i = 0; i < N; i++) {
+     sumError += fabs(h_c[i] - 3.0f);
+  }
+  std::cout << "Sum error: " << sumError << std::endl;
+
+  // Cleanup
+  if (d_a) {
+     CUDA_CHECK(cudaFree(d_a));
+  }
+  if (d_b) {
+     CUDA_CHECK(cudaFree(d_b));
+  }
+  if (d_c) {
+     CUDA_CHECK(cudaFree(d_c));
+  }
+}
+```
+
+```bash
+%%shell
+
+nvcc add_cuda_profiling2.cu -o add_cuda_profiling2 && ./add_cuda_profiling2
+```
+
+```bash
+%shell # 启动 profiling
+! nsys profile -t cuda,nvtx,osrt -o add_cuda_profiling2 -f true ./add_cuda_profiling2
+```
+
+```bash
+%shell # 解析并统计性能信息：
+! nsys stats add_cuda_profiling2.nsys-rep
+```

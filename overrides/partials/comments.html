@@ -1,0 +1,39 @@
+{#-
+  Giscus comments integration.
+  Enabled per-page via frontmatter: comments: true
+  Replace placeholders below (4 values) after running https://giscus.app
+-#}
+{% if page.meta.comments %}
+  <h2 id="__comments">{{ lang.t("meta.comments") | default("评论") }}</h2>
+
+  <script src="https://giscus.app/client.js"
+          data-repo="DuoHuo/docs"
+          data-category="Announcements"
+          data-category-id="CATEGORY_ID"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="top"
+          data-theme="preferred_color_scheme"
+          data-lang="zh-CN"
+          data-loading="lazy"
+          crossorigin="anonymous"
+          async>
+  </script>
+
+  {# Synchronize Giscus theme with palette color-scheme toggle #}
+  <script>
+    var palette = __md_get("__palette");
+    if (palette && palette.color && palette.color.scheme) {
+      var giscusScheme = palette.color.scheme === "default" ? "light" : "dark";
+      var iframe = document.querySelector("iframe.giscus-frame");
+      if (iframe) {
+        iframe.contentWindow.postMessage(
+          { giscus: { setConfig: { theme: giscusScheme } } },
+          "https://giscus.app"
+        );
+      }
+    }
+  </script>
+{% endif %}

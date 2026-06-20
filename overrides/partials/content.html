@@ -1,0 +1,40 @@
+{#-
+  Adds visible page metadata from Markdown front matter.
+-#}
+{% include "partials/actions.html" %}
+{% set page_meta %}
+  {% if page.meta and (page.meta.author or page.meta.source) %}
+    <aside class="md-source-file md-page-meta" aria-label="页面信息">
+      {% if page.meta.author %}
+        <span class="md-source-file__fact">
+          <span class="md-icon" title="作者">
+            {% include ".icons/material/account-edit.svg" %}
+          </span>
+          <span>作者：{{ page.meta.author }}</span>
+        </span>
+      {% endif %}
+      {% if page.meta.source %}
+        <span class="md-source-file__fact">
+          <span class="md-icon" title="来源">
+            {% include ".icons/material/source-branch.svg" %}
+          </span>
+          <span>来源：{{ page.meta.source }}</span>
+        </span>
+      {% endif %}
+    </aside>
+  {% endif %}
+{% endset %}
+{% if page.meta and page.meta.title %}
+  <h1 id="__skip">{{ page.meta.title }}</h1>
+  {{ page_meta }}
+  {{ page.content }}
+{% else %}
+  {% if "\u003ch1" not in page.content %}
+    <h1 id="__skip">{{ page.title | d(config.site_name, true)}}</h1>
+  {% endif %}
+  {{ page.content }}
+{% endif %}
+{% include "partials/tags.html" %}
+{% include "partials/source-file.html" %}
+{% include "partials/feedback.html" %}
+{% include "partials/comments.html" %}

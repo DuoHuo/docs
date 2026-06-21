@@ -8,6 +8,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: 
+      name: CF-Pages
+      url: https://docs.duohuo.org.cn
     name: Build & Deploy
     steps:
       - name: Checkout Code

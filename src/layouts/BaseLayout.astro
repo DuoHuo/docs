@@ -1,0 +1,46 @@
+---
+import BaseHead from "../components/BaseHead.astro";
+import Footer from "../components/Footer.astro";
+import SiteSidebar from "../components/site-sidebar.tsx";
+import MobileNav from "../components/mobile-nav.tsx";
+import { ClientRouter } from "astro:transitions";
+import { SITE_TITLE, SITE_DESCRIPTION, TRANSITION_API } from "../config";
+import { siteConfig } from "../lib/site";
+
+const {
+  image,
+  title = SITE_TITLE,
+  description = SITE_DESCRIPTION,
+  includeSidebar = true,
+  sideBarActiveItemID,
+  ogType,
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title={title} description={description} image={image} ogType={ogType} />
+    {TRANSITION_API && <ClientRouter />}
+  </head>
+  <body class="min-h-screen bg-background text-foreground antialiased">
+    <div class="flex">
+      {includeSidebar && <SiteSidebar client:load activeItem={sideBarActiveItemID} />}
+      <div class="flex min-h-screen flex-1 flex-col min-w-0">
+        <header
+          class:list={[
+            "sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur",
+            { "lg:hidden": includeSidebar },
+          ]}
+        >
+          {includeSidebar && <MobileNav client:load activeItem={sideBarActiveItemID} />}
+          <a href="/" class="text-sm font-semibold">{siteConfig.name}</a>
+        </header>
+        <main class="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+          <slot />
+        </main>
+        <Footer />
+      </div>
+    </div>
+  </body>
+</html>

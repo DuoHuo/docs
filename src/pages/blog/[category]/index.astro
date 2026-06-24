@@ -1,0 +1,47 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HorizontalCard from "@/components/HorizontalCard.astro";
+import { categories, type Category } from "@/lib/site";
+import { getCollection } from "astro:content";
+
+export async function getStaticPaths() {
+  return categories.map((c) => ({
+    params: { category: c.slug },
+    props: { category: c },
+  }));
+}
+
+const { category } = Astro.props as { category: Category };
+const posts = (await getCollection("blog"))
+  .filter((p) => p.id.startsWith(category.slug + "/"))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+---
+
+<BaseLayout title={`${category.label} - 多火知识库`} sideBarActiveItemID={category.slug}>
+  <div class="mb-4">
+    <h1 class="text-2xl font-bold tracking-tight">{category.label}</h1>
+    <p class="mt-1 text-sm text-muted-foreground">{category.description}</p>
+  </div>
+  {
+    posts.length === 0 ? (
+      <div class="rounded-md border bg-muted p-6 text-center text-sm text-muted-foreground">
+        这个栏目还没有文章。
+      </div>
+    ) : (
+      <div class="flex flex-col gap-3">
+        {posts.map((post) => (
+          <HorizontalCard
+            title={post.data.title}
+            desc={post.data.description}
+            url={`/blog/${post.id}`}
+            pubDate={post.data.pubDate}
+            author={post.data.author}
+            category={category.slug}
+            categoryLabel={category.label}
+            tags={post.data.tags}
+          />
+        ))}
+      </div>
+    )
+  }
+</BaseLayout>

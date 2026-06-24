@@ -1,0 +1,12 @@
+---
+title: "'解决 JSON 解析报错 Error: Unexpected character \"{\" at position 1'"
+description: "定位 JSON 解析报错 Error: Unexpected character 的真正元凶——UTF-8 with BOM。"
+pubDate: 2023-09-16
+author: "若熙"
+tags:
+  - "开发"
+  - "后端"
+  - "JSON"
+---
+
+当你看见形如 `Error: Unexpected character "\{" at position 1` 报错，并且很确信你的 JSON 格式没有问题、第一个字符确实是 `\{` 时 —— 看看哪个大聪明用了 **UTF-8 with BOM** 编码。

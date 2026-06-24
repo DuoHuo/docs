@@ -1,0 +1,187 @@
+---
+title: "VLESS 代理搭建教程"
+description: "sing-box + VLESS-REALITY 代理搭建，配 fail2ban/ufw/BBR 的新手教程。"
+pubDate: 2025-10-30
+author: "真真夜夜"
+tags:
+  - "网络"
+  - "VLESS"
+  - "sing-box"
+  - "VPS"
+---
+
+本文教你用最简单的方法搭建一个快速、安全的代理服务。整个过程就像搭积木，一步一步来，保证你能成功！
+
+---
+
+## 准备工作
+
+### 你需要什么？
+
+1. **一台 VPS 服务器**
+    - 推荐：有 IPv6 的 NAT VPS
+    - 带宽和流量越高越好
+    - 购买后你会得到：IP 地址、用户名（root）、密码
+2. **一个 SSH 工具**
+    - Windows：推荐 FinalShell 或 Xshell
+    - Mac：直接用系统自带的"终端"
+
+---
+
+## 第一步：连接服务器并更新系统
+
+1. 打开 SSH 工具，输入服务器 IP、用户名、密码，连接服务器。
+2. 复制下面这行命令，粘贴后按回车：
+
+```bash
+apt update -y && apt upgrade -y && apt install curl wget tmux ufw fail2ban -y
+```
+
+**这行命令是干嘛的？**
+
+- 给系统打最新补丁
+- 安装几个实用工具：下载器、防断线工具、防火墙、安全卫士
+
+---
+
+## 第二步：配置防火墙和安全设置
+
+安全第一！先把门窗锁好。
+
+### 1. 配置安全卫士
+
+```bash
+cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local && sed -i -e 's/^ignoreip = .*/ignoreip = 127.0.0.1\/8 ::1/' -e 's/^bantime  = .*/bantime  = 24h/' -e 's/^maxretry = .*/maxretry = 3/' -e '/^\[sshd\]/a enabled = true' /etc/fail2ban/jail.local && systemctl restart fail2ban
+```
+
+**作用**：有人尝试破解密码时，自动封禁 IP 24 小时。
+
+### 2. 配置防火墙
+
+```bash
+# 先开放 SSH 端口（这是我们的遥控器通道）
+ufw allow 22/tcp
+
+# 启动防火墙
+ufw enable
+```
+
+**警告**：系统会问是否继续，输入 `y` 回车。因为我们已经开了 SSH 端口，所以不会断线。
+
+---
+
+## 第三步：开启网络加速
+
+### 安装 BBR 加速
+
+```bash
+wget -N --no-check-certificate "https://github.com/teddysun/across/raw/master/bbr.sh" && chmod +x bbr.sh && ./bbr.sh
+```
+
+**安装过程**：
+
+- 脚本会检查系统，如果需要升级内核就选 `y`
+- 升级完后提示重启，再选 `y`
+
+### 验证是否成功
+
+服务器重启后，重新连接，运行：
+
+```bash
+sysctl net.ipv4.tcp_congestion_control
+```
+
+**成功标志**：看到 `net.ipv4.tcp_congestion_control = bbr` 就对了！
+
+---
+
+## 第四步：安装代理核心
+
+### 安装 sing-box
+
+```bash
+bash <(wget -qO- -o- https://github.com/233boy/sing-box/raw/main/install.sh)
+```
+
+### 配置代理协议
+
+脚本运行后会出现菜单，按下面的步骤操作：
+
+1. 输入 `1`（添加配置），回车
+2. 输入 `18`（选择 VLESS-REALITY），回车
+3. 输入端口号（10000-60000 之间，比如 `45678`），**记住这个端口号！**
+4. 其他选项直接按回车用默认值
+
+### 开放代理端口
+
+```bash
+# 把"你的端口"换成你刚才设置的数字
+ufw allow 你的端口
+```
+
+**示例**：如果你设置了 `45678`，就运行 `ufw allow 45678`。
+
+---
+
+## 第五步：连接使用
+
+### 1. 获取配置信息
+
+回到 sing-box 菜单，输入 `3` 查看配置，你会看到：
+
+- VLESS 链接
+- 二维码
+
+### 2. 下载客户端
+
+- **Windows**：NekoRay（下载 windows64 版本）
+- **Android**：SagerNet 或 NekoBox
+- **iPhone**：App Store 搜 FoXray 或 Stash
+
+### 3. 导入配置
+
+- **电脑**：复制 VLESS 链接，在客户端里选"从剪贴板导入"
+- **手机**：用客户端扫描二维码
+
+### 4. 测试连接
+
+1. 点击客户端的"连接"按钮
+2. 打开浏览器访问 google.com
+3. 如果能正常打开，并且 IP 显示为服务器的 IPv6 地址
+
+**恭喜！你的代理服务搭建成功了！**
+
+---
+
+## 常见问题
+
+### Q：连接不上服务器？
+
+A：检查 IP 地址对不对，网络是否正常。
+
+### Q：代理启动失败？
+
+A：检查端口是不是被占用了：`netstat -tulpn | grep :端口号`
+
+### Q：速度很慢？
+
+A：确认 BBR 是否开启：`sysctl net.ipv4.tcp_congestion_control`
+
+### Q：客户端导入失败？
+
+A：重新生成链接，或者手动输入配置信息。
+
+---
+
+## 维护建议
+
+1. **定期更新系统**：每月运行一次 `apt update && apt upgrade`
+2. **更新 sing-box**：重新运行安装脚本
+3. **监控服务状态**：`systemctl status sing-box`
+4. **备份配置**：`cp -r /etc/sing-box /etc/sing-box.backup`
+
+---
+
+**总结**：现在你拥有了一个快速、安全的现代化代理服务。整个过程不需要域名，直接使用 IP 地址，配置简单，维护方便。享受自由的网络吧！
+
+**免责声明**：本文仅用于技术学习，请遵守当地法律法规。

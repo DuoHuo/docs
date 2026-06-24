@@ -1,0 +1,36 @@
+---
+import { render } from "astro:content";
+import PostLayout from "@/layouts/PostLayout.astro";
+import { getCategory } from "@/lib/site";
+import { getCollection } from "astro:content";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog");
+  return posts.map((post) => {
+    const parts = post.id.split("/");
+    const category = parts[0];
+    const slug = parts.length > 1 ? parts.slice(1).join("/") : parts[0];
+    return { params: { category, slug }, props: { post } };
+  });
+}
+
+const { post } = Astro.props;
+const cat = getCategory(post.id.split("/")[0]);
+const { Content } = await render(post);
+const data = post.data;
+---
+
+<PostLayout
+  title={data.title}
+  description={data.description}
+  pubDate={data.pubDate}
+  author={data.author}
+  updatedDate={data.updatedDate}
+  heroImage={data.heroImage}
+  badge={data.badge}
+  tags={data.tags}
+  category={cat?.slug}
+  categoryLabel={cat?.label}
+>
+  <Content />
+</PostLayout>

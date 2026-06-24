@@ -1,0 +1,82 @@
+---
+import { type BlogSchema } from "../content.config";
+import BaseLayout from "./BaseLayout.astro";
+import dayjs from "dayjs";
+import localizedFormat from "dayjs/plugin/localizedFormat";
+import { Image } from "astro:assets";
+
+export interface Props extends BlogSchema {
+  category?: string;
+  categoryLabel?: string;
+}
+
+const {
+  title,
+  description,
+  pubDate,
+  author = "DH 社员",
+  updatedDate,
+  heroImage,
+  badge,
+  tags = [],
+  category,
+  categoryLabel,
+} = Astro.props;
+
+dayjs.extend(localizedFormat);
+const displayDate = dayjs(pubDate).format("ll");
+const updatedDisplay = updatedDate ? dayjs(updatedDate).format("ll") : null;
+---
+
+<BaseLayout title={title} description={description} image={heroImage} sideBarActiveItemID={category} ogType="article">
+  <article>
+    {
+      heroImage && (
+        <Image width={750} height={422} format="webp" src={heroImage} alt={title} class="mb-6 w-full rounded-lg" />
+      )
+    }
+    <div class="mb-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+      {
+        category && categoryLabel && (
+          <a
+            href={`/blog/${category}`}
+            class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-primary/15"
+          >
+            {categoryLabel}
+          </a>
+        )
+      }
+      <time>{displayDate}</time>
+      <span aria-hidden="true">·</span>
+      <span>{author}</span>
+    </div>
+    <h1 class="mb-2 text-3xl font-bold tracking-tight">{title}</h1>
+    {
+      badge && (
+        <span class="mb-4 inline-flex items-center rounded-full border border-transparent bg-secondary text-secondary-foreground px-2 py-0.5 text-xs font-medium">
+          {badge}
+        </span>
+    )
+    }
+    {
+      tags && tags.length > 0 && (
+        <div class="mb-4 flex flex-wrap gap-1.5">
+          {tags.map((tag) => (
+            <span class="inline-flex items-center rounded-full border border-input px-2 py-0.5 text-xs text-muted-foreground">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )
+    }
+    <hr class="my-6 border-border" />
+    <div class="prose prose-lg max-w-none dark:prose-invert">
+      <slot />
+    </div>
+    {
+      updatedDisplay && (
+        <p class="mt-8 text-xs text-muted-foreground">最后更新于 {updatedDisplay}</p>
+      )
+    }
+  </article>
+</BaseLayout>

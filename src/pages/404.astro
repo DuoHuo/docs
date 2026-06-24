@@ -1,0 +1,15 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="404: Not Found" includeSidebar={false}>
+  <div class="flex min-h-[60vh] flex-col items-center justify-center text-center">
+    <div class="text-7xl">🏝</div>
+    <h1 class="mt-4 text-8xl font-bold tracking-tight">404</h1>
+    <p class="mt-2 text-lg text-muted-foreground">The page you're looking for couldn't be found.</p>
+    <a
+      class="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+      href="/">Back home</a
+    >
+  </div>
+</BaseLayout>

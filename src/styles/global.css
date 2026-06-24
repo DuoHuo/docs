@@ -174,3 +174,8 @@
 :root[data-sidebar="collapsed"] .sidebar-toggle-open {
   display: inline-flex;
 }
+
+/* Article headings: clear the sticky header when scrolled to via the TOC. */
+.prose :is(h2, h3, h4, h5) {
+  scroll-margin-top: 6rem;
+}

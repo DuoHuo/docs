@@ -16,7 +16,7 @@ export async function getStaticPaths() {
 
 const { post } = Astro.props;
 const cat = getCategory(post.id.split("/")[0]);
-const { Content } = await render(post);
+const { Content, headings } = await render(post);
 const data = post.data;
 ---
 
@@ -31,6 +31,7 @@ const data = post.data;
   tags={data.tags}
   category={cat?.slug}
   categoryLabel={cat?.label}
+  headings={headings}
 >
   <Content />
 </PostLayout>

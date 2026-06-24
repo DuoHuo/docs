@@ -4,10 +4,13 @@ import BaseLayout from "./BaseLayout.astro";
 import dayjs from "dayjs";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 import { Image } from "astro:assets";
+import type { MarkdownHeading } from "astro";
+import TableOfContents from "../components/table-of-contents.tsx";
 
 export interface Props extends BlogSchema {
   category?: string;
   categoryLabel?: string;
+  headings?: MarkdownHeading[];
 }
 
 const {
@@ -21,14 +24,17 @@ const {
   tags = [],
   category,
   categoryLabel,
+  headings = [],
 } = Astro.props;
 
 dayjs.extend(localizedFormat);
 const displayDate = dayjs(pubDate).format("ll");
 const updatedDisplay = updatedDate ? dayjs(updatedDate).format("ll") : null;
+const tocItems = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
+const showToc = tocItems.length >= 2;
 ---
 
-<BaseLayout title={title} description={description} image={heroImage} sideBarActiveItemID={category} ogType="article">
+<BaseLayout title={title} description={description} image={heroImage} sideBarActiveItemID={category} ogType="article" aside={showToc}>
   <article>
     {
       heroImage && (
@@ -79,4 +85,9 @@ const updatedDisplay = updatedDate ? dayjs(updatedDate).format("ll") : null;
       )
     }
   </article>
+  {showToc && (
+    <Fragment slot="aside">
+      <TableOfContents client:idle headings={headings} />
+    </Fragment>
+  )}
 </BaseLayout>

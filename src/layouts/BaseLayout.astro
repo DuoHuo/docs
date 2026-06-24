@@ -15,7 +15,9 @@ const {
   includeSidebar = true,
   sideBarActiveItemID,
   ogType,
+  aside = false,
 } = Astro.props;
+const hasAside = aside;
 ---
 
 <!doctype html>
@@ -58,8 +60,22 @@ const {
           {includeSidebar && <MobileNav client:load activeItem={sideBarActiveItemID} />}
           <a href="/" class="text-sm font-semibold">{siteConfig.name}</a>
         </header>
-        <main class="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-          <slot />
+        <main class:list={[
+          "mx-auto w-full flex-1 px-6 py-10",
+          hasAside
+            ? "max-w-3xl lg:max-w-5xl lg:grid lg:grid-cols-[minmax(0,1fr)_14rem] lg:gap-8"
+            : "max-w-3xl",
+        ]}>
+          <div class={hasAside ? "min-w-0" : undefined}>
+            <slot />
+          </div>
+          {hasAside && (
+            <aside class="hidden lg:block">
+              <div class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
+                <slot name="aside" />
+              </div>
+            </aside>
+          )}
         </main>
         <Footer />
       </div>

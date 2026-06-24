@@ -3,6 +3,7 @@ import BaseHead from "../components/BaseHead.astro";
 import Footer from "../components/Footer.astro";
 import SiteSidebar from "../components/site-sidebar.tsx";
 import MobileNav from "../components/mobile-nav.tsx";
+import SidebarToggle from "../components/sidebar-toggle.tsx";
 import { ClientRouter } from "astro:transitions";
 import { SITE_TITLE, SITE_DESCRIPTION, TRANSITION_API } from "../config";
 import { siteConfig } from "../lib/site";
@@ -22,17 +23,38 @@ const {
   <head>
     <BaseHead title={title} description={description} image={image} ogType={ogType} />
     {TRANSITION_API && <ClientRouter />}
+    <script is:inline>
+      // Sidebar collapsed state is driven by <html data-sidebar="collapsed">.
+      // Apply it before first paint, and re-apply onto the incoming document
+      // right before Astro's <ClientRouter /> swaps pages — otherwise the
+      // swap copies the new page's <html lang="en"> (no data-sidebar) and the
+      // sidebar flashes expanded on every navigation.
+      (function () {
+        function apply(doc) {
+          try {
+            if (localStorage.getItem("sidebar_collapsed") === "1") {
+              doc.documentElement.setAttribute("data-sidebar", "collapsed");
+            } else {
+              doc.documentElement.removeAttribute("data-sidebar");
+            }
+          } catch (e) {}
+        }
+        apply(document);
+        if (!window.__sidebarStateReady) {
+          window.__sidebarStateReady = true;
+        document.addEventListener("astro:before-swap", function (ev) {
+            apply(ev.newDocument);
+          });
+        }
+      })();
+    </script>
   </head>
   <body class="min-h-screen bg-background text-foreground antialiased">
     <div class="flex">
       {includeSidebar && <SiteSidebar client:load activeItem={sideBarActiveItemID} />}
       <div class="flex min-h-screen flex-1 flex-col min-w-0">
-        <header
-          class:list={[
-            "sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur",
-            { "lg:hidden": includeSidebar },
-          ]}
-        >
+        <header class="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur">
+          {includeSidebar && <SidebarToggle client:load />}
           {includeSidebar && <MobileNav client:load activeItem={sideBarActiveItemID} />}
           <a href="/" class="text-sm font-semibold">{siteConfig.name}</a>
         </header>

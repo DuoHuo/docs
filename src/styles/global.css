@@ -147,3 +147,30 @@
     font-feature-settings: "ss01", "cv01";
   }
 }
+
+/* Desktop sidebar collapse — driven by <html data-sidebar="collapsed">, which
+   an inline <head> script in BaseLayout restores from localStorage before
+   first paint. This keeps the sidebar free of React state so re-mounting
+   across ClientRouter navigations does not flash. */
+.site-sidebar .sidebar-inner {
+  transition: opacity 150ms linear;
+}
+:root[data-sidebar="collapsed"] .site-sidebar {
+  width: 0;
+  border-right-width: 0;
+}
+:root[data-sidebar="collapsed"] .site-sidebar .sidebar-inner {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+/* Header toggle icon swap (the button lives outside the sidebar). */
+.sidebar-toggle-open {
+  display: none;
+}
+:root[data-sidebar="collapsed"] .sidebar-toggle-close {
+  display: none;
+}
+:root[data-sidebar="collapsed"] .sidebar-toggle-open {
+  display: inline-flex;
+}

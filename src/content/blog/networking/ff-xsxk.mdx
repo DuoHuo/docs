@@ -1,0 +1,126 @@
+---
+title: "Firefox打开选课系统无限刷新？"
+description: "快速解决火狐浏览器无法打开泥信选课系统的问题"
+pubDate: 2026-07-15
+author: "airline233"
+tags:
+  - "网络"
+  - "Firefox"
+  - "选课系统"
+  - "油猴脚本"
+---
+
+用 Firefox 打开南信大选课系统（`xsxk.nuist.edu.cn`），页面一直转圈、无限刷新，Chrome 却一切正常——不是你网不好，是站点故意不让 Firefox 进。
+
+## 现象
+
+打开 [xsxk.nuist.edu.cn](https://xsxk.nuist.edu.cn/)，Firefox 里常见两种体验：
+
+- 地址栏不停跳，像在抽风
+- 偶尔闪一下「请使用 Chrome」之类的提示，又立刻被甩回首页
+
+同一账号、同一网络，换 Chrome 就没事。问题很稳，稳到可以当复现用例。
+
+## 成因
+
+站点前端有一份浏览器检测脚本：
+
+[`/xsxk/profile/browerTips/browerTips.js`](https://xsxk.nuist.edu.cn/xsxk/profile/browerTips/browerTips.js)
+
+（文件名里的 `brower` 不是笔误，源站就是这么拼的。）
+
+它会读浏览器 UA，发现你是 Firefox、Edge 等「不在白名单」的浏览器，就跳到 tips 页（`browerTips.html` 一类路径）。
+
+坑在第二步：**tips 页并没有好好待着**，它会直接 **302 回首页**。  
+首页再跑检测 → 再踢去 tips → tips 再 302 回来……
+
+于是你看到的就是：**无限刷新**。
+
+流程图大概是这样：
+
+```text
+打开首页
+  → browerTips.js 发现不是 Chrome
+  → 跳转 browerTips.html
+  → 302 回首页
+  → ……循环
+```
+
+## 为什么不直接拦那个 JS？
+
+第一反应往往是：油猴直接拦截 / 干掉 `browerTips.js` 不就完了？
+
+试过就知道，事情没那么干净。
+
+检测脚本不只是负责「踢人」，还和页面其它逻辑共享状态——例如后续渲染会依赖类似 `browserTypeFlag` 的标记。  
+你把检测脚本整段干掉，首页其它 JS 可能就不知道自己该按哪种浏览器路径渲染，页面卡半截、样式错乱、功能缺失，比刷新更烦。
+
+所以更稳的做法不是「拆检测」，而是 **让检测以为你是 Chrome**。
+
+## 做法：伪装 Chrome UA
+
+现代 Firefox 在标准 Web API 上已经和 Chrome 高度兼容，选课系统这种偏传统的教务前端，真正卡人的往往不是「Firefox 渲染不了」，而是 **UA 字符串过不了那道 if**。
+
+于是脚本只做一件事：在页面脚本跑起来之前（`document-start`），把 `navigator.userAgent` 改成一份标准 Chrome UA。
+
+检测通过，tips 不触发，刷新环自然断掉；其它依赖浏览器类型标记的逻辑也能按 Chrome 路径正常走。
+
+## 脚本
+
+仓库：[airline233/nuist-xsxk-ff](https://github.com/airline233/nuist-xsxk-ff)
+
+**一键安装（推荐）：** 浏览器已装 Tampermonkey 时，点下面 raw 链接即可：
+
+```text
+https://raw.githubusercontent.com/airline233/nuist-xsxk-ff/main/nuist-xsxk-ff.user.js
+```
+
+脚本本体如下（就这么短）：
+
+```js
+// ==UserScript==
+// @name         NUIST 选课系统 Firefox 兼容
+// @name:en      NUIST Course Selection Firefox Fix
+// @namespace    https://github.com/airline233/nuist-xsxk-ff
+// @version      1.0.0
+// @description  伪装 Chrome User-Agent，让 Firefox 能正常打开南信大选课系统，避免浏览器检测导致的无限刷新
+// @description:en  Spoof Chrome User-Agent so Firefox can use NUIST course selection without endless refresh
+// @author       airline233
+// @homepage     https://github.com/airline233/nuist-xsxk-ff
+// @supportURL   https://github.com/airline233/nuist-xsxk-ff/issues
+// @match        *://xsxk.nuist.edu.cn/*
+// @run-at       document-start
+// @grant        none
+// @license      MIT
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    // 伪装 UserAgent 为标准 Chrome，绕过 xsxk.nuist.edu.cn 的浏览器限制
+    const fakeUA =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+    Object.defineProperty(navigator, 'userAgent', {
+        get: function () {
+            return fakeUA;
+        },
+    });
+})();
+```
+
+### 安装步骤
+
+1. Firefox 安装 [Tampermonkey](https://addons.mozilla.org/firefox/addon/tampermonkey/)
+2. 打开上面的 raw 链接，扩展会弹出安装确认
+3. 访问选课系统，确认脚本在该域名下已启用
+4. 硬刷新一次（`Ctrl+F5`）
+
+## 写在后面
+
+这事本质上是站点用「只认 Chrome」的粗暴检测，叠了一个会 302 回首页的 tips 页，把兼容问题做成了死循环。
+
+脚本不碰登录、不碰选课接口，只改本地 UA 表现，方便 Firefox 用户正常进系统。  
+学校前端若以后改检测逻辑，脚本可能失效，到时候再看仓库更新即可。
+
+选课已经够累了，至少别再被自己的浏览器刷新整崩溃。

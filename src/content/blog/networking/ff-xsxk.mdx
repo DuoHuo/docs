@@ -14,12 +14,9 @@ tags:
 
 ## 现象
 
-打开 [xsxk.nuist.edu.cn](https://xsxk.nuist.edu.cn/)，Firefox 里常见两种体验：
+打开 [xsxk.nuist.edu.cn](https://xsxk.nuist.edu.cn/)，Firefox 里常见无限在首页刷新的情况，账号都登不进去
 
-- 地址栏不停跳，像在抽风
-- 偶尔闪一下「请使用 Chrome」之类的提示，又立刻被甩回首页
-
-同一账号、同一网络，换 Chrome 就没事。问题很稳，稳到可以当复现用例。
+同一网络，换 Chrome 就没事。
 
 ## 成因
 
@@ -69,11 +66,9 @@ tags:
 
 仓库：[airline233/nuist-xsxk-ff](https://github.com/airline233/nuist-xsxk-ff)
 
-**一键安装（推荐）：** 浏览器已装 Tampermonkey 时，点下面 raw 链接即可：
+**一键安装（推荐）：** 浏览器已装 Tampermonkey 等油猴插件时，点下面 raw 链接即可：
 
-```text
-https://raw.githubusercontent.com/airline233/nuist-xsxk-ff/main/nuist-xsxk-ff.user.js
-```
+[nuist-xsxk-ff.user.js](https://raw.githubusercontent.com/airline233/nuist-xsxk-ff/main/nuist-xsxk-ff.user.js)
 
 脚本本体如下（就这么短）：
 
@@ -124,3 +119,6 @@ https://raw.githubusercontent.com/airline233/nuist-xsxk-ff/main/nuist-xsxk-ff.us
 学校前端若以后改检测逻辑，脚本可能失效，到时候再看仓库更新即可。
 
 选课已经够累了，至少别再被自己的浏览器刷新整崩溃。
+
+
+p.s. 问题是人工F12排的，脚本是gemini写的，文章是grok写的，怎么有种gpt风...
